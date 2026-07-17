@@ -41,14 +41,19 @@ export const env = {
     // Si CORS_ORIGIN está definida (recomendado en producción), se usa esa lista
     // separada por comas. Si no, usamos un fallback que cubre desarrollo local
     // (varios puertos de Vite) y el dominio de producción en Vercel.
-    origin: process.env.CORS_ORIGIN
+    // Se normaliza quitando slashes finales: el header "Origin" que envía el
+    // navegador NUNCA trae slash al final, así que si aquí quedara uno
+    // (por error de configuración) la comparación exacta de "cors" fallaría
+    // silenciosamente y bloquearía el origen real.
+    origin: (process.env.CORS_ORIGIN
       ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
       : [
           'http://localhost:5173',
           'http://localhost:5174',
           'http://localhost:5175',
           'https://drogueria-alpha.vercel.app',
-        ],
+        ]
+    ).map((o) => o.replace(/\/+$/, '')),
   },
 
   // Upload (Supabase Storage)
