@@ -38,11 +38,17 @@ export const env = {
 
   // CORS
   cors: {
-    // En desarrollo aceptamos varios puertos típicos de Vite (5173, 5174, 5175...)
-    // porque si el puerto por defecto está ocupado, Vite salta al siguiente.
+    // Si CORS_ORIGIN está definida (recomendado en producción), se usa esa lista
+    // separada por comas. Si no, usamos un fallback que cubre desarrollo local
+    // (varios puertos de Vite) y el dominio de producción en Vercel.
     origin: process.env.CORS_ORIGIN
       ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-      : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
+      : [
+          'http://localhost:5173',
+          'http://localhost:5174',
+          'http://localhost:5175',
+          'https://drogueria-alpha.vercel.app',
+        ],
   },
 
   // Upload (Supabase Storage)
