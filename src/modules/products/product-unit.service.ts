@@ -15,13 +15,8 @@ export class ProductUnitService {
   }
 
   async create(input: CreateProductUnitInput) {
-    // product_units are scoped by their parent product; validate product exists without store filter
-    const { data: productRow } = await (new ProductRepository() as any).client
-      .from('products')
-      .select('id')
-      .eq('id', input.productId)
-      .maybeSingle();
-    const product = productRow;
+    // product_units están asociadas a un producto que debe existir en la misma tienda
+    const product = await this.productRepo.findById(input.productId, input.storeId);
     if (!product) {
       throw ApiError.notFound('Producto no encontrado');
     }
@@ -35,7 +30,7 @@ export class ProductUnitService {
     }
 
     if (input.barcode) {
-      const existing = await this.unitRepo.findByBarcode(input.barcode);
+      const existing = await this.unitRepo.findByBarcode(input.barcode, input.storeId);
       if (existing) {
         throw ApiError.badRequest('El código de barras ya está en uso por otra presentación');
       }
@@ -44,7 +39,7 @@ export class ProductUnitService {
     return this.unitRepo.create(input);
   }
 
-  async update(id: string, input: UpdateProductUnitInput) {
+  async update(id: string, input: UpdateProductUnitInput, storeId: string) {
     const existing = await this.unitRepo.findById(id);
     if (!existing) {
       throw ApiError.notFound('Presentación no encontrada');
@@ -59,7 +54,7 @@ export class ProductUnitService {
     }
 
     if (input.barcode) {
-      const existingBarcode = await this.unitRepo.findByBarcode(input.barcode);
+      const existingBarcode = await this.unitRepo.findByBarcode(input.barcode, storeId);
       if (existingBarcode && existingBarcode.id !== id) {
         throw ApiError.badRequest('El código de barras ya está en uso por otra presentación');
       }

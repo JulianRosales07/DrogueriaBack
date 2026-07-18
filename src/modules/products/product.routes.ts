@@ -42,14 +42,18 @@ productRouter.get('/:productId/units', async (req, res, next) => {
 
 productRouter.post('/:productId/units', async (req, res, next) => {
   try {
-    const data = await productUnitService.create({ ...req.body, productId: req.params.productId as string });
+    const data = await productUnitService.create({
+      ...req.body,
+      productId: req.params.productId as string,
+      storeId: getStoreId(req),
+    });
     res.status(201).json({ success: true, data });
   } catch (error) { next(error); }
 });
 
 productRouter.put('/units/:unitId', async (req, res, next) => {
   try {
-    const data = await productUnitService.update(req.params.unitId as string, req.body);
+    const data = await productUnitService.update(req.params.unitId as string, req.body, getStoreId(req));
     res.json({ success: true, data });
   } catch (error) { next(error); }
 });

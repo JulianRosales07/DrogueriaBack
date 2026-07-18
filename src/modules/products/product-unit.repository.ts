@@ -20,9 +20,10 @@ export type CreateProductUnitInput = {
   cost: number;
   price: number;
   barcode?: string | null;
+  storeId: string;
 };
 
-export type UpdateProductUnitInput = Partial<Omit<CreateProductUnitInput, 'productId'>>;
+export type UpdateProductUnitInput = Partial<Omit<CreateProductUnitInput, 'productId' | 'storeId'>>;
 
 const mapUnit = (row: any): ProductUnit => ({
   id: row.id,
@@ -79,11 +80,12 @@ export class ProductUnitRepository {
     return data ? mapUnit(data) : null;
   }
 
-  async findByBarcode(barcode: string): Promise<ProductUnit | null> {
+  async findByBarcode(barcode: string, storeId: string): Promise<ProductUnit | null> {
     const { data, error } = await this.client
       .from('product_units')
       .select('*')
       .eq('barcode', barcode)
+      .eq('store_id', storeId)
       .maybeSingle();
     throwIfError(error);
     return data ? mapUnit(data) : null;
@@ -95,6 +97,7 @@ export class ProductUnitRepository {
       .insert({
         id: generateId(),
         product_id: input.productId,
+        store_id: input.storeId,
         name: input.name,
         factor: input.factor,
         cost: input.cost,
