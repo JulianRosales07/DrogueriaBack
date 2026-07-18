@@ -6,6 +6,7 @@ export type ProductUnit = {
   productId: string;
   name: string;
   factor: number;
+  cost: number;
   price: number;
   barcode: string | null;
   createdAt: string;
@@ -16,6 +17,7 @@ export type CreateProductUnitInput = {
   productId: string;
   name: string;
   factor: number;
+  cost: number;
   price: number;
   barcode?: string | null;
 };
@@ -27,6 +29,7 @@ const mapUnit = (row: any): ProductUnit => ({
   productId: row.product_id,
   name: row.name,
   factor: row.factor,
+  cost: row.cost,
   price: row.price,
   barcode: row.barcode,
   createdAt: row.created_at,
@@ -94,6 +97,7 @@ export class ProductUnitRepository {
         product_id: input.productId,
         name: input.name,
         factor: input.factor,
+        cost: input.cost,
         price: input.price,
         barcode: input.barcode || null,
       })
@@ -107,6 +111,7 @@ export class ProductUnitRepository {
     const payload: Record<string, any> = { updated_at: new Date().toISOString() };
     if (input.name !== undefined) payload.name = input.name;
     if (input.factor !== undefined) payload.factor = input.factor;
+    if (input.cost !== undefined) payload.cost = input.cost;
     if (input.price !== undefined) payload.price = input.price;
     if (input.barcode !== undefined) payload.barcode = input.barcode || null;
 

@@ -30,6 +30,10 @@ export class ProductUnitService {
       throw ApiError.badRequest('El factor debe ser mayor a 1 (ej. 10 para una caja x10)');
     }
 
+    if (input.cost < 0) {
+      throw ApiError.badRequest('El costo no puede ser negativo');
+    }
+
     if (input.barcode) {
       const existing = await this.unitRepo.findByBarcode(input.barcode);
       if (existing) {
@@ -48,6 +52,10 @@ export class ProductUnitService {
 
     if (input.factor !== undefined && input.factor <= 1) {
       throw ApiError.badRequest('El factor debe ser mayor a 1 (ej. 10 para una caja x10)');
+    }
+
+    if (input.cost !== undefined && input.cost < 0) {
+      throw ApiError.badRequest('El costo no puede ser negativo');
     }
 
     if (input.barcode) {

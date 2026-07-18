@@ -21,6 +21,7 @@ export type ProductUnitSummary = {
   id: string;
   name: string;
   factor: number;
+  cost: number;
   price: number;
   barcode: string | null;
 };
@@ -64,6 +65,7 @@ const mapProduct = (row: any): ProductWithCategory => ({
     id: u.id,
     name: u.name,
     factor: u.factor,
+    cost: u.cost,
     price: u.price,
     barcode: u.barcode,
   })),
