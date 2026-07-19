@@ -118,6 +118,19 @@ productRouter.put('/:id/stock', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// Borra TODO el inventario de la droguería (productos, ventas, compras). Solo Administrador.
+productRouter.delete('/wipe-all', authorize('Administrador de Drogueria'), async (req, res, next) => {
+  try {
+    const data = await productService.wipeAll({
+      actorUserId: req.user?.id,
+      ipAddress: req.ip,
+      storeId: getStoreId(req),
+      confirmation: req.body?.confirmation,
+    });
+    res.json({ success: true, data, message: 'Inventario eliminado completamente' });
+  } catch (error) { next(error); }
+});
+
 productRouter.delete('/:id', async (req, res, next) => {
   try {
     await productService.remove(req.params.id as string, {
