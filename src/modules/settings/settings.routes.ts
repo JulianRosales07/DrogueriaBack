@@ -6,7 +6,7 @@ import { ApiError } from '@shared/errors/ApiError';
 const settingsRouter: Router = Router();
 const settingsService = new SettingsService();
 
-settingsRouter.use(requireAuth, authorize('Administrador de Drogueria'));
+settingsRouter.use(requireAuth, authorize('Administrador de Drogueria', 'Cajero'));
 
 const getStoreId = (req: any): string => {
   const storeId = req.user?.storeId;
