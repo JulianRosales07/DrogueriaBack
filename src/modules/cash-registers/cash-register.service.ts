@@ -71,13 +71,21 @@ export class CashRegisterService {
     return { ...register, salesTotalSoFar: salesSoFar.total, salesCountSoFar: salesSoFar.count };
   }
 
-  async history(storeId: string) {
-    const { data, error } = await this.client
+  /**
+   * Historial de turnos de caja. Si se pasa `userId`, solo devuelve los turnos
+   * abiertos por ese usuario (usado para que un Cajero solo vea los suyos).
+   */
+  async history(storeId: string, userId?: string) {
+    let query = this.client
       .from('cash_registers')
       .select('*, opened_by:users!cash_registers_opened_by_user_id_fkey(full_name), closed_by:users!cash_registers_closed_by_user_id_fkey(full_name)')
-      .eq('store_id', storeId)
-      .order('opened_at', { ascending: false })
-      .limit(50);
+      .eq('store_id', storeId);
+
+    if (userId) {
+      query = query.eq('opened_by_user_id', userId);
+    }
+
+    const { data, error } = await query.order('opened_at', { ascending: false }).limit(50);
     throwIfError(error);
     return (data || []).map(mapRegister);
   }

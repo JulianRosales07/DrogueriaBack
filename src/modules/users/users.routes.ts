@@ -6,6 +6,22 @@ const usersRouter: Router = Router();
 const usersService = new UsersService();
 
 const SUPER_ADMIN = 'Super Administrador';
+const STORE_ADMIN = 'Administrador de Drogueria';
+
+// GET /api/users/store/staff — Listar el personal (cajeros, etc.) de la propia droguería
+// Usado por el Administrador de Drogueria para filtrar reportes por empleado.
+usersRouter.get('/store/staff', requireAuth, authorize(STORE_ADMIN), async (req, res, next) => {
+  try {
+    const storeId = req.user?.storeId;
+    if (!storeId) {
+      return res.json({ success: true, data: [] });
+    }
+    const data = await usersService.listByStore(storeId);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // GET /api/users — Listar todos los usuarios (solo Super Admin)
 usersRouter.get('/', requireAuth, authorize(SUPER_ADMIN), async (_req, res, next) => {

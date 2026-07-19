@@ -28,15 +28,24 @@ export class SaleService {
     return getSupabaseClient();
   }
 
-  async list(storeId: string) {
-    const { data, error } = await this.client
+  /**
+   * Lista las ventas de la droguería. Si se pasa `userId`, solo devuelve las
+   * ventas registradas por ese usuario (usado para que un Cajero solo vea las suyas).
+   */
+  async list(storeId: string, userId?: string) {
+    let query = this.client
       .from('sales')
       .select(
         `*, customers(full_name), users(full_name),
          sale_items(id, product_id, quantity, unit_price, line_total, unit_label, unit_factor, unit_quantity, products(name))`
       )
-      .eq('store_id', storeId)
-      .order('created_at', { ascending: false });
+      .eq('store_id', storeId);
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
     throwIfError(error);
     return data;
   }

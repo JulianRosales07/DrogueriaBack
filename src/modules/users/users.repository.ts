@@ -70,6 +70,17 @@ export class UsersRepository {
     return (data ?? []).map(mapUser);
   }
 
+  /** Lista los usuarios (empleados) de una droguería específica. Usado por el Administrador de Drogueria. */
+  async findByStoreId(storeId: string): Promise<UserRecord[]> {
+    const { data, error } = await this.client
+      .from('users')
+      .select('*, roles(name), stores(name)')
+      .eq('store_id', storeId)
+      .order('full_name', { ascending: true });
+    throwIfError(error);
+    return (data ?? []).map(mapUser);
+  }
+
   async findById(id: string): Promise<UserRecord | null> {
     const { data, error } = await this.client
       .from('users')

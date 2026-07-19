@@ -35,6 +35,11 @@ export class UsersService {
     return this.usersRepo.findAll();
   }
 
+  /** Lista el personal (usuarios) de una droguería específica. */
+  async listByStore(storeId: string) {
+    return this.usersRepo.findByStoreId(storeId);
+  }
+
   async getRoles() {
     return this.usersRepo.getRoles();
   }

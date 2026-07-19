@@ -23,7 +23,12 @@ cashRegisterRouter.get('/current', async (req, res, next) => {
 
 cashRegisterRouter.get('/history', async (req, res, next) => {
   try {
-    const data = await cashRegisterService.history(getStoreId(req));
+    // El Cajero solo puede ver sus propios turnos. El Administrador puede
+    // filtrar por cualquier usuario de su droguería con ?userId=... (o ver todos si se omite).
+    const isCashier = req.user?.role === 'Cajero';
+    const userId = isCashier ? req.user!.id : (req.query.userId as string | undefined);
+
+    const data = await cashRegisterService.history(getStoreId(req), userId);
     res.json({ success: true, data });
   } catch (error) { next(error); }
 });

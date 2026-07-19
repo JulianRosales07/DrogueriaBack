@@ -16,7 +16,12 @@ const getStoreId = (req: any): string => {
 
 saleRouter.get('/', async (req, res, next) => {
   try {
-    const data = await saleService.list(getStoreId(req));
+    // El Cajero solo puede ver sus propias ventas. El Administrador puede
+    // filtrar por cualquier usuario de su droguería con ?userId=... (o ver todas si se omite).
+    const isCashier = req.user?.role === 'Cajero';
+    const userId = isCashier ? req.user!.id : (req.query.userId as string | undefined);
+
+    const data = await saleService.list(getStoreId(req), userId);
     res.json({ success: true, data });
   } catch (error) { next(error); }
 });
