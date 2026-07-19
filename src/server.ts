@@ -50,6 +50,7 @@ import { settingsRouter } from '@modules/settings/settings.routes';
 import { auditRouter } from '@modules/audit/audit.routes';
 import { usersRouter } from '@modules/users/users.routes';
 import { storesRouter } from '@modules/stores/stores.routes';
+import { cashRegisterRouter } from '@modules/cash-registers/cash-register.routes';
 
 // Registrar rutas de módulos
 app.use('/api/auth', authRouter);
@@ -63,6 +64,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/stores', storesRouter);
+app.use('/api/cash-registers', cashRegisterRouter);
 
 // Error handler
 app.use(errorHandler);

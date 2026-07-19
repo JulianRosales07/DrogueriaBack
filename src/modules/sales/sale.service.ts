@@ -46,6 +46,18 @@ export class SaleService {
       throw ApiError.badRequest('La venta debe incluir al menos un ítem');
     }
 
+    const { data: openRegister, error: registerError } = await this.client
+      .from('cash_registers')
+      .select('id')
+      .eq('store_id', input.storeId)
+      .eq('status', 'OPEN')
+      .maybeSingle();
+    throwIfError(registerError);
+
+    if (!openRegister) {
+      throw ApiError.badRequest('Debes abrir la caja antes de registrar ventas');
+    }
+
     const total = input.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
       + (input.tax ?? 0) - (input.discount ?? 0);
 
