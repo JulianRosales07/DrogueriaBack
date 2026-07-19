@@ -8,6 +8,7 @@ import { createSupabaseClient, closeSupabaseClient } from '@core/database/connec
 import { env } from '@config/env';
 import { errorHandler } from '@shared/middlewares/errorHandler';
 import { logger } from '@shared/utils/logger';
+import { startKeepAlivePing } from '@shared/utils/keepAlive';
 
 const app = express();
 
@@ -88,6 +89,7 @@ const startServer = async () => {
       logger.info(`🚀 Servidor corriendo en puerto ${env.port}`);
       logger.info(`📝 Entorno: ${env.nodeEnv}`);
       logger.info(`🌐 http://localhost:${env.port}`);
+      startKeepAlivePing();
     });
 
     // Graceful shutdown

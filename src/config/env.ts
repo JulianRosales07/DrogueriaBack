@@ -64,4 +64,14 @@ export const env = {
 
   // Logging
   logLevel: process.env.LOG_LEVEL || 'info',
+
+  // Keep-alive: evita que hostings gratuitos (Render, etc.) duerman el servicio
+  // por inactividad. El propio backend hace ping a su URL pública cada X minutos.
+  keepAlive: {
+    enabled: process.env.KEEP_ALIVE_ENABLED
+      ? process.env.KEEP_ALIVE_ENABLED === 'true'
+      : process.env.NODE_ENV === 'production',
+    url: process.env.KEEP_ALIVE_URL || process.env.RENDER_EXTERNAL_URL || '',
+    intervalMinutes: parseInt(process.env.KEEP_ALIVE_INTERVAL_MINUTES || '10', 10),
+  },
 } as const;
