@@ -6,11 +6,12 @@ const usersRouter: Router = Router();
 const usersService = new UsersService();
 
 const SUPER_ADMIN = 'Super Administrador';
-const STORE_ADMIN = 'Administrador de Drogueria';
+const PHARMACY_ADMIN = 'Administrador de Drogueria';
+const STORE_ADMIN = 'Administrador de Tienda';
 
-// GET /api/users/store/staff — Listar el personal (cajeros, etc.) de la propia droguería
-// Usado por el Administrador de Drogueria para filtrar reportes por empleado.
-usersRouter.get('/store/staff', requireAuth, authorize(STORE_ADMIN), async (req, res, next) => {
+// GET /api/users/store/staff — Listar el personal (cajeros, vendedores, etc.) de la propia tienda
+// Usado por el Administrador de Drogueria o Administrador de Tienda para filtrar reportes por empleado.
+usersRouter.get('/store/staff', requireAuth, authorize(PHARMACY_ADMIN, STORE_ADMIN), async (req, res, next) => {
   try {
     const storeId = req.user?.storeId;
     if (!storeId) {

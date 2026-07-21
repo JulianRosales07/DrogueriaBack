@@ -1,6 +1,8 @@
 import { getSupabaseClient, throwIfError } from '@core/database/connection';
 import { generateId } from '@shared/utils/cuid';
 
+export type StoreType = 'PHARMACY' | 'STORE';
+
 export type Store = {
   id: string;
   name: string;
@@ -8,6 +10,7 @@ export type Store = {
   address: string | null;
   phone: string | null;
   email: string | null;
+  type: StoreType;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -19,6 +22,7 @@ export type CreateStoreInput = {
   address?: string | null;
   phone?: string | null;
   email?: string | null;
+  type?: StoreType;
 };
 
 export type UpdateStoreInput = Partial<CreateStoreInput> & { isActive?: boolean };
@@ -30,6 +34,7 @@ const mapStore = (row: any): Store => ({
   address: row.address,
   phone: row.phone,
   email: row.email,
+  type: (row.type as StoreType) ?? 'PHARMACY',
   isActive: row.is_active,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -70,6 +75,7 @@ export class StoresRepository {
         address: input.address ?? null,
         phone: input.phone ?? null,
         email: input.email ?? null,
+        type: input.type ?? 'PHARMACY',
         is_active: true,
       })
       .select('*')
@@ -85,6 +91,7 @@ export class StoresRepository {
     if (input.address !== undefined) payload.address = input.address;
     if (input.phone !== undefined) payload.phone = input.phone;
     if (input.email !== undefined) payload.email = input.email;
+    if (input.type !== undefined) payload.type = input.type;
     if (input.isActive !== undefined) payload.is_active = input.isActive;
 
     const { data, error } = await this.client

@@ -15,6 +15,7 @@ export type UserWithRole = {
   roleName: string | null;
   storeId: string | null;
   storeName: string | null;
+  storeType: 'PHARMACY' | 'STORE' | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -52,6 +53,7 @@ const mapUser = (row: any): UserWithRole => ({
   roleName: row.roles?.name ?? null,
   storeId: row.store_id ?? null,
   storeName: row.stores?.name ?? null,
+  storeType: (row.stores?.type as 'PHARMACY' | 'STORE') ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -64,7 +66,7 @@ export class AuthRepository {
   async findUserByEmail(email: string): Promise<UserWithRole | null> {
     const { data, error } = await this.client
       .from('users')
-      .select('*, roles(name), stores(name)')
+      .select('*, roles(name), stores(name, type)')
       .eq('email', email)
       .maybeSingle();
 
@@ -75,7 +77,7 @@ export class AuthRepository {
   async getUserWithRole(userId: string): Promise<UserWithRole | null> {
     const { data, error } = await this.client
       .from('users')
-      .select('*, roles(name), stores(name)')
+      .select('*, roles(name), stores(name, type)')
       .eq('id', userId)
       .maybeSingle();
 

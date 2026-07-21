@@ -3,6 +3,8 @@ import jwt from 'jsonwebtoken';
 import { env } from '@config/env';
 import { ApiError } from '@shared/errors/ApiError';
 
+export type StoreType = 'PHARMACY' | 'STORE';
+
 interface JwtPayload {
   id: string;
   userId: string;
@@ -10,6 +12,7 @@ interface JwtPayload {
   role: string;
   storeId: string | null;
   storeName: string | null;
+  storeType: StoreType | null;
 }
 
 declare global {

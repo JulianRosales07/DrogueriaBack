@@ -81,13 +81,14 @@ export class AuthService {
         role: userWithRole.roleName,
         storeId: userWithRole.storeId,
         storeName: userWithRole.storeName,
+        storeType: userWithRole.storeType,
       },
       accessToken,
       refreshToken,
     };
   }
 
-  private generateAccessToken(user: { id: string; email: string; roleName: string | null; storeId: string | null; storeName: string | null }): string {
+  private generateAccessToken(user: { id: string; email: string; roleName: string | null; storeId: string | null; storeName: string | null; storeType: string | null }): string {
     return jwt.sign(
       {
         userId: user.id,
@@ -95,6 +96,7 @@ export class AuthService {
         role: user.roleName || 'Cajero',
         storeId: user.storeId ?? null,
         storeName: user.storeName ?? null,
+        storeType: user.storeType ?? null,
       },
       env.jwt.secret,
       { expiresIn: env.jwt.accessExpiration as any }

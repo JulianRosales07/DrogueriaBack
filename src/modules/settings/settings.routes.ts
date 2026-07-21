@@ -2,15 +2,16 @@ import { Router } from 'express';
 import { SettingsService } from './settings.service';
 import { requireAuth, authorize } from '@shared/middlewares/auth.middleware';
 import { ApiError } from '@shared/errors/ApiError';
+import { ALL_BUSINESS_ROLES } from '@shared/utils/roles';
 
 const settingsRouter: Router = Router();
 const settingsService = new SettingsService();
 
-settingsRouter.use(requireAuth, authorize('Administrador de Drogueria', 'Cajero'));
+settingsRouter.use(requireAuth, authorize(...ALL_BUSINESS_ROLES));
 
 const getStoreId = (req: any): string => {
   const storeId = req.user?.storeId;
-  if (!storeId) throw ApiError.forbidden('Usuario sin droguería asignada');
+  if (!storeId) throw ApiError.forbidden('Usuario sin tienda asignada');
   return storeId;
 };
 

@@ -4,18 +4,19 @@ import { CategoryService } from './category.service';
 import { ProductUnitService } from './product-unit.service';
 import { requireAuth, authorize } from '@shared/middlewares/auth.middleware';
 import { ApiError } from '@shared/errors/ApiError';
+import { ALL_BUSINESS_ROLES } from '@shared/utils/roles';
 
 const productRouter: Router = Router();
 const productService = new ProductService();
 const categoryService = new CategoryService();
 const productUnitService = new ProductUnitService();
 
-productRouter.use(requireAuth, authorize('Administrador de Drogueria', 'Cajero'));
+productRouter.use(requireAuth, authorize(...ALL_BUSINESS_ROLES));
 
 // Helper to extract storeId or throw
 const getStoreId = (req: any): string => {
   const storeId = req.user?.storeId;
-  if (!storeId) throw ApiError.forbidden('Usuario sin droguería asignada');
+  if (!storeId) throw ApiError.forbidden('Usuario sin tienda asignada');
   return storeId;
 };
 
@@ -118,8 +119,8 @@ productRouter.put('/:id/stock', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-// Borra TODO el inventario de la droguería (productos, ventas, compras). Solo Administrador.
-productRouter.delete('/wipe-all', authorize('Administrador de Drogueria'), async (req, res, next) => {
+// Borra TODO el inventario de la tienda (productos, ventas, compras). Solo Administrador.
+productRouter.delete('/wipe-all', authorize('Administrador de Drogueria', 'Administrador de Tienda'), async (req, res, next) => {
   try {
     const data = await productService.wipeAll({
       actorUserId: req.user?.id,

@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { AuditService } from './audit.service';
 import { requireAuth, authorize } from '@shared/middlewares/auth.middleware';
+import { ALL_ADMINS } from '@shared/utils/roles';
 
 const auditRouter: Router = Router();
 const auditService = new AuditService();
 
-auditRouter.use(requireAuth, authorize('Administrador de Drogueria'));
+auditRouter.use(requireAuth, authorize(...ALL_ADMINS));
 
 auditRouter.get('/', async (req, res, next) => {
   try {

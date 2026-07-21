@@ -2,15 +2,16 @@ import { Router } from 'express';
 import { CashRegisterService } from './cash-register.service';
 import { requireAuth, authorize } from '@shared/middlewares/auth.middleware';
 import { ApiError } from '@shared/errors/ApiError';
+import { ALL_BUSINESS_ROLES, OPERATOR_ROLES } from '@shared/utils/roles';
 
 const cashRegisterRouter: Router = Router();
 const cashRegisterService = new CashRegisterService();
 
-cashRegisterRouter.use(requireAuth, authorize('Administrador de Drogueria', 'Cajero'));
+cashRegisterRouter.use(requireAuth, authorize(...ALL_BUSINESS_ROLES));
 
 const getStoreId = (req: any): string => {
   const storeId = req.user?.storeId;
-  if (!storeId) throw ApiError.forbidden('Usuario sin droguería asignada');
+  if (!storeId) throw ApiError.forbidden('Usuario sin tienda asignada');
   return storeId;
 };
 
@@ -23,10 +24,10 @@ cashRegisterRouter.get('/current', async (req, res, next) => {
 
 cashRegisterRouter.get('/history', async (req, res, next) => {
   try {
-    // El Cajero solo puede ver sus propios turnos. El Administrador puede
-    // filtrar por cualquier usuario de su droguería con ?userId=... (o ver todos si se omite).
-    const isCashier = req.user?.role === 'Cajero';
-    const userId = isCashier ? req.user!.id : (req.query.userId as string | undefined);
+    // El Cajero/Vendedor solo puede ver sus propios turnos. El Administrador puede
+    // filtrar por cualquier usuario de su tienda con ?userId=... (o ver todos si se omite).
+    const isOperator = OPERATOR_ROLES.includes(req.user?.role as any);
+    const userId = isOperator ? req.user!.id : (req.query.userId as string | undefined);
 
     const data = await cashRegisterService.history(getStoreId(req), userId);
     res.json({ success: true, data });
