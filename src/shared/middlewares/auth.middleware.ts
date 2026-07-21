@@ -5,7 +5,7 @@ import { ApiError } from '@shared/errors/ApiError';
 
 export type StoreType = 'PHARMACY' | 'STORE';
 
-interface JwtPayload {
+export interface JwtPayload {
   id: string;
   userId: string;
   email: string;
@@ -13,6 +13,7 @@ interface JwtPayload {
   storeId: string | null;
   storeName: string | null;
   storeType: StoreType | null;
+  permissions?: string[] | null;
 }
 
 declare global {
