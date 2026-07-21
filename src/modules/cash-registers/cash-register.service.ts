@@ -31,6 +31,7 @@ const mapRegister = (row: any) => ({
   expectedAmount: row.expected_amount !== null ? Number(row.expected_amount) : null,
   difference: row.difference !== null ? Number(row.difference) : null,
   salesTotal: row.sales_total !== null ? Number(row.sales_total) : null,
+  cashSalesTotal: row.cash_sales_total !== null ? Number(row.cash_sales_total) : null,
   salesCount: row.sales_count !== null ? Number(row.sales_count) : null,
   openingNote: row.opening_note,
   closingNote: row.closing_note,
@@ -68,7 +69,12 @@ export class CashRegisterService {
     const register = mapRegister(data);
     const salesSoFar = await this.salesSince(storeId, register.openedAt);
 
-    return { ...register, salesTotalSoFar: salesSoFar.total, salesCountSoFar: salesSoFar.count };
+    return {
+      ...register,
+      salesTotalSoFar: salesSoFar.total,
+      cashSalesTotalSoFar: salesSoFar.cashTotal,
+      salesCountSoFar: salesSoFar.count,
+    };
   }
 
   /**
@@ -93,7 +99,7 @@ export class CashRegisterService {
   private async salesSince(storeId: string, sinceIso: string, untilIso?: string) {
     let query = this.client
       .from('sales')
-      .select('total', { count: 'exact' })
+      .select('total, payment_method', { count: 'exact' })
       .eq('store_id', storeId)
       .eq('status', 'CONFIRMED')
       .gte('created_at', sinceIso);
@@ -106,7 +112,12 @@ export class CashRegisterService {
     throwIfError(error);
 
     const total = (data || []).reduce((sum: number, row: any) => sum + Number(row.total), 0);
-    return { total, count: count ?? (data || []).length };
+    // Solo las ventas en EFECTIVO afectan el efectivo físico esperado en caja.
+    // Las pagadas con tarjeta/transferencia no entran ni salen del cajón.
+    const cashTotal = (data || [])
+      .filter((row: any) => row.payment_method === 'CASH')
+      .reduce((sum: number, row: any) => sum + Number(row.total), 0);
+    return { total, cashTotal, count: count ?? (data || []).length };
   }
 
   async open(input: OpenCashRegisterInput) {
@@ -154,13 +165,16 @@ export class CashRegisterService {
     }
 
     const closedAt = new Date().toISOString();
-    const { total: salesTotal, count: salesCount } = await this.salesSince(
+    const { total: salesTotal, cashTotal: cashSalesTotal, count: salesCount } = await this.salesSince(
       input.storeId,
       current.openedAt,
       closedAt,
     );
 
-    const expectedAmount = current.openingAmount + salesTotal;
+    // El efectivo esperado en el cajón solo suma las ventas pagadas en EFECTIVO.
+    // Ventas con tarjeta/transferencia se incluyen en salesTotal (para reportes)
+    // pero no mueven el efectivo físico.
+    const expectedAmount = current.openingAmount + cashSalesTotal;
     const difference = input.closingAmount - expectedAmount;
 
     const { error } = await this.client
@@ -171,6 +185,7 @@ export class CashRegisterService {
         expected_amount: expectedAmount,
         difference,
         sales_total: salesTotal,
+        cash_sales_total: cashSalesTotal,
         sales_count: salesCount,
         closing_note: input.note || null,
         status: 'CLOSED',

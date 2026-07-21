@@ -34,4 +34,26 @@ purchaseRouter.post('/', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+purchaseRouter.get('/outstanding-by-supplier', async (req, res, next) => {
+  try {
+    const data = await purchaseService.outstandingBySupplier(getStoreId(req));
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+});
+
+purchaseRouter.post('/:id/payments', async (req, res, next) => {
+  try {
+    const data = await purchaseService.registerPayment({
+      purchaseId: req.params.id as string,
+      amount: Number(req.body.amount),
+      paymentMethod: req.body.paymentMethod,
+      note: req.body.note,
+      actorUserId: req.user!.id,
+      ipAddress: req.ip,
+      storeId: getStoreId(req),
+    });
+    res.status(201).json({ success: true, data });
+  } catch (error) { next(error); }
+});
+
 export { purchaseRouter };

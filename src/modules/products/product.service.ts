@@ -107,14 +107,7 @@ export class ProductService {
       throw ApiError.notFound('Producto no encontrado');
     }
 
-    try {
-      await this.productRepo.delete(productId, options.storeId);
-    } catch (error: any) {
-      if (error.code === 'HAS_HISTORY') {
-        throw ApiError.badRequest(error.message);
-      }
-      throw error;
-    }
+    await this.productRepo.delete(productId, options.storeId);
 
     await createAuditLog({
       entityType: 'product',

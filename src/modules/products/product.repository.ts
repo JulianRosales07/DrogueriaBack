@@ -236,27 +236,13 @@ export class ProductRepository {
   }
 
   /**
-   * Elimina el producto si no tiene historial. Si tiene, lanza error.
+   * Elimina el producto. Las llaves foráneas de sale_items, purchase_items y
+   * stock_movements están configuradas con ON DELETE CASCADE (ver migración
+   * 013_allow_product_delete_cascade.sql), por lo que también se eliminan
+   * automáticamente sus líneas de venta/compra y movimientos de inventario
+   * asociados. Esta operación es irreversible y afecta el histórico.
    */
   async delete(productId: string, storeId: string): Promise<void> {
-    const [saleItems, purchaseItems, movements] = await Promise.all([
-      this.client.from('sale_items').select('id', { count: 'exact', head: true }).eq('product_id', productId),
-      this.client.from('purchase_items').select('id', { count: 'exact', head: true }).eq('product_id', productId),
-      this.client.from('stock_movements').select('id', { count: 'exact', head: true }).eq('product_id', productId),
-    ]);
-    throwIfError(saleItems.error);
-    throwIfError(purchaseItems.error);
-    throwIfError(movements.error);
-
-    const hasHistory = (saleItems.count || 0) > 0 || (purchaseItems.count || 0) > 0 || (movements.count || 0) > 0;
-    if (hasHistory) {
-      const err: any = new Error(
-        'El producto tiene historial de ventas, compras o movimientos y no puede eliminarse. Desactívalo en su lugar.',
-      );
-      err.code = 'HAS_HISTORY';
-      throw err;
-    }
-
     const { error } = await this.client.from('products').delete().eq('id', productId).eq('store_id', storeId);
     throwIfError(error);
   }

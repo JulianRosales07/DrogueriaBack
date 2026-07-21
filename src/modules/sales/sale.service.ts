@@ -11,12 +11,15 @@ type SaleItemInput = {
   productUnitId?: string | null;
 };
 
+export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER';
+
 type SaleInput = {
   customerId?: string;
   customerName?: string;
   notes?: string;
   tax?: number;
   discount?: number;
+  paymentMethod?: PaymentMethod;
   items: SaleItemInput[];
   actorUserId: string;
   ipAddress?: string;
@@ -80,6 +83,7 @@ export class SaleService {
       p_tax: input.tax ?? 0,
       p_discount: input.discount ?? 0,
       p_store_id: input.storeId,
+      p_payment_method: input.paymentMethod ?? 'CASH',
       p_items: input.items.map((item) => ({
         productId: item.productId,
         unitQuantity: item.quantity,
