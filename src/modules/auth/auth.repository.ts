@@ -16,6 +16,7 @@ export type UserWithRole = {
   storeId: string | null;
   storeName: string | null;
   storeType: 'PHARMACY' | 'STORE' | null;
+  permissions: string[] | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -54,6 +55,7 @@ const mapUser = (row: any): UserWithRole => ({
   storeId: row.store_id ?? null,
   storeName: row.stores?.name ?? null,
   storeType: (row.stores?.type as 'PHARMACY' | 'STORE') ?? null,
+  permissions: row.permissions ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });

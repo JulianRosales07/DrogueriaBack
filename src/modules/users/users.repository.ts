@@ -11,6 +11,7 @@ export type UserRecord = {
   roleName: string | null;
   storeId: string | null;
   storeName: string | null;
+  permissions: string[] | null;
   lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -23,6 +24,7 @@ export type CreateUserInput = {
   passwordHash: string;
   roleId: string;
   storeId?: string | null;
+  permissions?: string[] | null;
   status?: string;
 };
 
@@ -33,6 +35,7 @@ export type UpdateUserInput = {
   passwordHash?: string;
   roleId?: string;
   storeId?: string | null;
+  permissions?: string[] | null;
   status?: string;
 };
 
@@ -51,6 +54,7 @@ const mapUser = (row: any): UserRecord => ({
   roleName: row.roles?.name ?? null,
   storeId: row.store_id ?? null,
   storeName: row.stores?.name ?? null,
+  permissions: row.permissions ?? null,
   lastLoginAt: row.last_login_at,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -121,6 +125,7 @@ export class UsersRepository {
       password_hash: input.passwordHash,
       role_id: input.roleId,
       store_id: input.storeId ?? null,
+      permissions: input.permissions ?? null,
       status: input.status ?? 'ACTIVE',
     });
     throwIfError(error);
@@ -138,6 +143,7 @@ export class UsersRepository {
     if (input.passwordHash !== undefined) payload.password_hash = input.passwordHash;
     if (input.roleId !== undefined) payload.role_id = input.roleId;
     if (input.storeId !== undefined) payload.store_id = input.storeId;
+    if (input.permissions !== undefined) payload.permissions = input.permissions;
     if (input.status !== undefined) payload.status = input.status;
 
     const { error } = await this.client.from('users').update(payload).eq('id', id);

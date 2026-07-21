@@ -1,13 +1,12 @@
 import { Router } from 'express';
 import { UsersService } from './users.service';
 import { requireAuth, authorize } from '@shared/middlewares/auth.middleware';
+import { SUPER_ADMIN, PHARMACY_ADMIN, STORE_ADMIN } from '@shared/utils/roles';
 
 const usersRouter: Router = Router();
 const usersService = new UsersService();
 
-const SUPER_ADMIN = 'Super Administrador';
-const PHARMACY_ADMIN = 'Administrador de Drogueria';
-const STORE_ADMIN = 'Administrador de Tienda';
+const ADMIN_ROLES = [SUPER_ADMIN, PHARMACY_ADMIN, STORE_ADMIN];
 
 // GET /api/users/store/staff — Listar el personal (cajeros, vendedores, etc.) de la propia tienda
 // Usado por el Administrador de Drogueria o Administrador de Tienda para filtrar reportes por empleado.
@@ -24,18 +23,18 @@ usersRouter.get('/store/staff', requireAuth, authorize(PHARMACY_ADMIN, STORE_ADM
   }
 });
 
-// GET /api/users — Listar todos los usuarios (solo Super Admin)
-usersRouter.get('/', requireAuth, authorize(SUPER_ADMIN), async (_req, res, next) => {
+// GET /api/users — Listar usuarios (Super Admin ve todos, Admin de tienda/droguería ve los de su establecimiento)
+usersRouter.get('/', requireAuth, authorize(...ADMIN_ROLES), async (req, res, next) => {
   try {
-    const data = await usersService.list();
+    const data = await usersService.list(req.user);
     res.json({ success: true, data });
   } catch (error) {
     next(error);
   }
 });
 
-// GET /api/users/roles — Obtener roles disponibles (solo Super Admin)
-usersRouter.get('/roles', requireAuth, authorize(SUPER_ADMIN), async (_req, res, next) => {
+// GET /api/users/roles — Obtener roles disponibles
+usersRouter.get('/roles', requireAuth, authorize(...ADMIN_ROLES), async (_req, res, next) => {
   try {
     const data = await usersService.getRoles();
     res.json({ success: true, data });
@@ -44,21 +43,22 @@ usersRouter.get('/roles', requireAuth, authorize(SUPER_ADMIN), async (_req, res,
   }
 });
 
-// GET /api/users/:id — Obtener usuario por ID (solo Super Admin)
-usersRouter.get('/:id', requireAuth, authorize(SUPER_ADMIN), async (req, res, next) => {
+// GET /api/users/:id — Obtener usuario por ID
+usersRouter.get('/:id', requireAuth, authorize(...ADMIN_ROLES), async (req, res, next) => {
   try {
-    const data = await usersService.getById(req.params.id as string);
+    const data = await usersService.getById(req.params.id as string, req.user);
     res.json({ success: true, data });
   } catch (error) {
     next(error);
   }
 });
 
-// POST /api/users — Crear usuario (solo Super Admin)
-usersRouter.post('/', requireAuth, authorize(SUPER_ADMIN), async (req, res, next) => {
+// POST /api/users — Crear usuario
+usersRouter.post('/', requireAuth, authorize(...ADMIN_ROLES), async (req, res, next) => {
   try {
     const data = await usersService.create({
       ...req.body,
+      actorUser: req.user,
       actorUserId: req.user?.id,
       ipAddress: req.ip,
     });
@@ -68,11 +68,12 @@ usersRouter.post('/', requireAuth, authorize(SUPER_ADMIN), async (req, res, next
   }
 });
 
-// PUT /api/users/:id — Actualizar usuario (solo Super Admin)
-usersRouter.put('/:id', requireAuth, authorize(SUPER_ADMIN), async (req, res, next) => {
+// PUT /api/users/:id — Actualizar usuario
+usersRouter.put('/:id', requireAuth, authorize(...ADMIN_ROLES), async (req, res, next) => {
   try {
     const data = await usersService.update(req.params.id as string, {
       ...req.body,
+      actorUser: req.user,
       actorUserId: req.user?.id,
       ipAddress: req.ip,
     });
@@ -82,10 +83,10 @@ usersRouter.put('/:id', requireAuth, authorize(SUPER_ADMIN), async (req, res, ne
   }
 });
 
-// DELETE /api/users/:id — Eliminar usuario (solo Super Admin)
-usersRouter.delete('/:id', requireAuth, authorize(SUPER_ADMIN), async (req, res, next) => {
+// DELETE /api/users/:id — Eliminar usuario
+usersRouter.delete('/:id', requireAuth, authorize(...ADMIN_ROLES), async (req, res, next) => {
   try {
-    await usersService.delete(req.params.id as string, req.user?.id, req.ip);
+    await usersService.delete(req.params.id as string, req.user, req.ip);
     res.json({ success: true, message: 'Usuario eliminado correctamente' });
   } catch (error) {
     next(error);
@@ -93,3 +94,4 @@ usersRouter.delete('/:id', requireAuth, authorize(SUPER_ADMIN), async (req, res,
 });
 
 export { usersRouter };
+

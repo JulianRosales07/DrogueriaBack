@@ -3,6 +3,14 @@ import { UsersRepository } from './users.repository';
 import { ApiError } from '@shared/errors/ApiError';
 import { env } from '@config/env';
 import { createAuditLog } from '@shared/utils/audit';
+import { JwtPayload } from '@shared/middlewares/auth.middleware';
+import {
+  SUPER_ADMIN,
+  PHARMACY_ADMIN,
+  PHARMACY_CASHIER,
+  STORE_ADMIN,
+  STORE_SELLER,
+} from '@shared/utils/roles';
 
 type CreateUserInput = {
   email: string;
@@ -11,7 +19,9 @@ type CreateUserInput = {
   password: string;
   roleId: string;
   storeId?: string | null;
+  permissions?: string[] | null;
   status?: string;
+  actorUser?: JwtPayload;
   actorUserId?: string;
   ipAddress?: string;
 };
@@ -23,7 +33,9 @@ type UpdateUserInput = {
   password?: string;
   roleId?: string;
   storeId?: string | null;
+  permissions?: string[] | null;
   status?: string;
+  actorUser?: JwtPayload;
   actorUserId?: string;
   ipAddress?: string;
 };
@@ -31,11 +43,15 @@ type UpdateUserInput = {
 export class UsersService {
   private usersRepo = new UsersRepository();
 
-  async list() {
+  async list(actorUser?: JwtPayload) {
+    if (actorUser && actorUser.role !== SUPER_ADMIN) {
+      if (!actorUser.storeId) return [];
+      return this.usersRepo.findByStoreId(actorUser.storeId);
+    }
     return this.usersRepo.findAll();
   }
 
-  /** Lista el personal (usuarios) de una droguería específica. */
+  /** Lista el personal (usuarios) de una droguería o tienda específica. */
   async listByStore(storeId: string) {
     return this.usersRepo.findByStoreId(storeId);
   }
@@ -44,13 +60,50 @@ export class UsersService {
     return this.usersRepo.getRoles();
   }
 
-  async getById(id: string) {
+  async getById(id: string, actorUser?: JwtPayload) {
     const user = await this.usersRepo.findById(id);
     if (!user) throw ApiError.notFound('Usuario no encontrado');
+    if (actorUser && actorUser.role !== SUPER_ADMIN) {
+      if (user.storeId !== actorUser.storeId) {
+        throw ApiError.forbidden('No tienes permiso para ver este usuario');
+      }
+    }
     return user;
   }
 
   async create(input: CreateUserInput) {
+    let storeIdToAssign = input.storeId;
+
+    if (input.actorUser && input.actorUser.role !== SUPER_ADMIN) {
+      const { actorUser } = input;
+      if (!actorUser.storeId) {
+        throw ApiError.forbidden('No tienes un establecimiento asignado para crear usuarios');
+      }
+      storeIdToAssign = actorUser.storeId;
+
+      const roles = await this.usersRepo.getRoles();
+      const targetRole = roles.find((r) => r.id === input.roleId);
+      if (!targetRole) throw ApiError.badRequest('Rol no válido');
+
+      if (actorUser.role === PHARMACY_ADMIN) {
+        const allowedRoles = [PHARMACY_CASHIER, PHARMACY_ADMIN];
+        if (!allowedRoles.includes(targetRole.name)) {
+          throw ApiError.forbidden(
+            'Como Administrador de Droguería solo puedes crear cajeros o administradores de droguería',
+          );
+        }
+      } else if (actorUser.role === STORE_ADMIN) {
+        const allowedRoles = [STORE_SELLER, STORE_ADMIN];
+        if (!allowedRoles.includes(targetRole.name)) {
+          throw ApiError.forbidden(
+            'Como Administrador de Tienda solo puedes crear vendedores o administradores de tienda',
+          );
+        }
+      } else {
+        throw ApiError.forbidden('No tienes permisos para crear usuarios');
+      }
+    }
+
     const byEmail = await this.usersRepo.findByEmail(input.email);
     if (byEmail) throw ApiError.badRequest('El correo electrónico ya está en uso');
 
@@ -65,7 +118,8 @@ export class UsersService {
       fullName: input.fullName,
       passwordHash,
       roleId: input.roleId,
-      storeId: input.storeId ?? null,
+      storeId: storeIdToAssign ?? null,
+      permissions: input.permissions ?? null,
       status: input.status ?? 'ACTIVE',
     });
 
@@ -74,7 +128,7 @@ export class UsersService {
       entityId: user.id,
       action: 'user.created',
       description: `Usuario creado: ${user.email}`,
-      userId: input.actorUserId,
+      userId: input.actorUserId ?? input.actorUser?.id,
       ipAddress: input.ipAddress,
     });
 
@@ -84,6 +138,36 @@ export class UsersService {
   async update(id: string, input: UpdateUserInput) {
     const existing = await this.usersRepo.findById(id);
     if (!existing) throw ApiError.notFound('Usuario no encontrado');
+
+    let storeIdToAssign = input.storeId;
+
+    if (input.actorUser && input.actorUser.role !== SUPER_ADMIN) {
+      const { actorUser } = input;
+      if (existing.storeId !== actorUser.storeId) {
+        throw ApiError.forbidden('No tienes permiso para modificar este usuario');
+      }
+      storeIdToAssign = actorUser.storeId;
+
+      if (input.roleId) {
+        const roles = await this.usersRepo.getRoles();
+        const targetRole = roles.find((r) => r.id === input.roleId);
+        if (!targetRole) throw ApiError.badRequest('Rol no válido');
+
+        if (actorUser.role === PHARMACY_ADMIN) {
+          const allowedRoles = [PHARMACY_CASHIER, PHARMACY_ADMIN];
+          if (!allowedRoles.includes(targetRole.name)) {
+            throw ApiError.forbidden('Solo puedes asignar roles de Cajero o Administrador de Droguería');
+          }
+        } else if (actorUser.role === STORE_ADMIN) {
+          const allowedRoles = [STORE_SELLER, STORE_ADMIN];
+          if (!allowedRoles.includes(targetRole.name)) {
+            throw ApiError.forbidden('Solo puedes asignar roles de Vendedor o Administrador de Tienda');
+          }
+        } else {
+          throw ApiError.forbidden('No tienes permisos para modificar roles');
+        }
+      }
+    }
 
     if (input.email && input.email !== existing.email) {
       const byEmail = await this.usersRepo.findByEmail(input.email);
@@ -106,7 +190,8 @@ export class UsersService {
       fullName: input.fullName,
       passwordHash,
       roleId: input.roleId,
-      storeId: input.storeId,
+      storeId: storeIdToAssign,
+      permissions: input.permissions,
       status: input.status,
     });
 
@@ -115,19 +200,27 @@ export class UsersService {
       entityId: user.id,
       action: 'user.updated',
       description: `Usuario actualizado: ${user.email}`,
-      userId: input.actorUserId,
+      userId: input.actorUserId ?? input.actorUser?.id,
       ipAddress: input.ipAddress,
     });
 
     return user;
   }
 
-  async delete(id: string, actorUserId?: string, ipAddress?: string) {
+  async delete(id: string, actorUser?: JwtPayload, ipAddress?: string) {
     const existing = await this.usersRepo.findById(id);
     if (!existing) throw ApiError.notFound('Usuario no encontrado');
 
-    if (actorUserId && actorUserId === id) {
-      throw ApiError.badRequest('No puedes eliminar tu propio usuario');
+    if (actorUser) {
+      if (actorUser.id === id) {
+        throw ApiError.badRequest('No puedes eliminar tu propio usuario');
+      }
+
+      if (actorUser.role !== SUPER_ADMIN) {
+        if (existing.storeId !== actorUser.storeId) {
+          throw ApiError.forbidden('No tienes permiso para eliminar este usuario');
+        }
+      }
     }
 
     await this.usersRepo.delete(id);
@@ -137,8 +230,9 @@ export class UsersService {
       entityId: id,
       action: 'user.deleted',
       description: `Usuario eliminado: ${existing.email}`,
-      userId: actorUserId,
+      userId: actorUser?.id,
       ipAddress,
     });
   }
 }
+

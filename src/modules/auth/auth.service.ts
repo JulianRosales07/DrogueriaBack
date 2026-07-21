@@ -82,13 +82,22 @@ export class AuthService {
         storeId: userWithRole.storeId,
         storeName: userWithRole.storeName,
         storeType: userWithRole.storeType,
+        permissions: userWithRole.permissions ?? null,
       },
       accessToken,
       refreshToken,
     };
   }
 
-  private generateAccessToken(user: { id: string; email: string; roleName: string | null; storeId: string | null; storeName: string | null; storeType: string | null }): string {
+  private generateAccessToken(user: {
+    id: string;
+    email: string;
+    roleName: string | null;
+    storeId: string | null;
+    storeName: string | null;
+    storeType: string | null;
+    permissions?: string[] | null;
+  }): string {
     return jwt.sign(
       {
         userId: user.id,
@@ -97,9 +106,10 @@ export class AuthService {
         storeId: user.storeId ?? null,
         storeName: user.storeName ?? null,
         storeType: user.storeType ?? null,
+        permissions: user.permissions ?? null,
       },
       env.jwt.secret,
-      { expiresIn: env.jwt.accessExpiration as any }
+      { expiresIn: env.jwt.accessExpiration as any },
     );
   }
 
@@ -107,7 +117,7 @@ export class AuthService {
     const token = generateId();
     const tokenHash = await bcrypt.hash(token, 5);
     const family = generateId();
-    
+
     await this.authRepo.createRefreshToken({
       id: generateId(),
       userId,
@@ -124,7 +134,7 @@ export class AuthService {
   private async generateRefreshTokenInFamily(userId: string, family: string): Promise<string> {
     const token = generateId();
     const tokenHash = await bcrypt.hash(token, 5);
-    
+
     await this.authRepo.createRefreshToken({
       id: generateId(),
       userId,
@@ -147,6 +157,10 @@ export class AuthService {
       username: user.username,
       fullName: user.fullName,
       role: user.roleName,
+      storeId: user.storeId,
+      storeName: user.storeName,
+      storeType: user.storeType,
+      permissions: user.permissions ?? null,
     };
   }
 

@@ -14,8 +14,13 @@ export const STORE_SELLER = 'Vendedor';
 /** Super Administrador (gestiona todo el sistema) */
 export const SUPER_ADMIN = 'Super Administrador';
 
+/** Todos los administradores del sistema (Super Admin + Administradores de establecimiento) */
+export const SYSTEM_ADMINS = [SUPER_ADMIN, PHARMACY_ADMIN, STORE_ADMIN] as const;
+
 /** Todos los roles de administrador por tipo de establecimiento */
 export const ALL_ADMINS = [PHARMACY_ADMIN, STORE_ADMIN] as const;
+
+
 
 /** Todos los roles de operación (cajero/vendedor) por tipo de establecimiento */
 export const ALL_OPERATORS = [PHARMACY_CASHIER, STORE_SELLER] as const;
