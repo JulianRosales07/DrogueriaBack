@@ -46,6 +46,16 @@ export class DashboardService {
 
     const lowStock = (products_ || []).filter((p: any) => p.stock <= p.min_stock).slice(0, 10);
 
+    // Si la migración 016 (RPC de rentabilidad) aún no se aplicó, el resumen no
+    // debe romperse: se devuelven ceros y se avisa en el log.
+    const [today, daily] = await Promise.all([
+      this.profit(storeId).catch((err) => {
+        console.warn('⚠️  No se pudo calcular la rentabilidad del día:', err.message);
+        return { salesTotal: 0, cogs: 0, profit: 0, salesCount: 0, purchasesTotal: 0 };
+      }),
+      this.profitDaily(storeId, 14).catch(() => [] as Awaited<ReturnType<DashboardService['profitDaily']>>),
+    ]);
+
     return {
       counts: {
         products: products || 0,
@@ -57,6 +67,49 @@ export class DashboardService {
       recentSales,
       recentPurchases,
       lowStock,
+      today,
+      profitDaily: daily,
     };
+  }
+
+  /**
+   * Rentabilidad de un rango de fechas: Utilidad = Ventas - COGS.
+   * El COGS usa el costo congelado en cada línea de venta (sale_items.unit_cost),
+   * no el costo actual del producto, que cambia con cada compra.
+   * Sin fechas devuelve el día de hoy (zona horaria America/Bogota).
+   */
+  async profit(storeId: string, from?: string, to?: string) {
+    const { data, error } = await this.client.rpc('store_profit_summary', {
+      p_store_id: storeId,
+      p_from: from ?? null,
+      p_to: to ?? null,
+    });
+    throwIfError(error);
+
+    const row: any = Array.isArray(data) ? data[0] : data;
+
+    return {
+      salesTotal: Number(row?.sales_total ?? 0),
+      cogs: Number(row?.cogs ?? 0),
+      profit: Number(row?.profit ?? 0),
+      salesCount: Number(row?.sales_count ?? 0),
+      purchasesTotal: Number(row?.purchases_total ?? 0),
+    };
+  }
+
+  /** Serie diaria de ventas / costo / utilidad para los gráficos */
+  async profitDaily(storeId: string, days = 14) {
+    const { data, error } = await this.client.rpc('store_profit_daily', {
+      p_store_id: storeId,
+      p_days: days,
+    });
+    throwIfError(error);
+
+    return (data || []).map((row: any) => ({
+      day: row.day as string,
+      salesTotal: Number(row.sales_total ?? 0),
+      cogs: Number(row.cogs ?? 0),
+      profit: Number(row.profit ?? 0),
+    }));
   }
 }

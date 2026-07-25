@@ -10,6 +10,11 @@ type PurchaseItemInput = {
   unitFactor?: number;
   unitLabel?: string;
   productUnitId?: string | null;
+  /**
+   * Precio de venta a aplicar al producto (o a la presentación comprada) junto
+   * con la compra. Si no viene, el precio de venta se deja como estaba.
+   */
+  salePrice?: number | null;
 };
 
 export type PurchasePaymentStatus = 'PAID' | 'PARTIAL' | 'PENDING';
@@ -28,6 +33,21 @@ type PurchaseInput = {
   storeId: string;
 };
 
+type UpdatePurchaseInput = PurchaseInput & {
+  purchaseId: string;
+};
+
+/** Fila mínima de `purchases` usada para cálculos de saldo y validaciones */
+type PurchaseBalanceRow = {
+  id: string;
+  supplier_id: string;
+  status: string;
+  total: number;
+  amount_paid: number;
+  payment_status: PurchasePaymentStatus;
+  suppliers?: { business_name: string } | null;
+};
+
 type RegisterPaymentInput = {
   purchaseId: string;
   amount: number;
@@ -38,19 +58,58 @@ type RegisterPaymentInput = {
   storeId: string;
 };
 
+/**
+ * Selección estándar de una compra con proveedor, ítems (incluyendo la
+ * presentación y el precio de venta aplicado) y su historial de pagos.
+ * Se comparte entre list/create/update para que el frontend siempre reciba la
+ * misma forma y pueda reconstruir la compra en el modal de edición.
+ */
+const PURCHASE_SELECT = `*, suppliers(business_name), users(full_name),
+   purchase_items(id, product_id, product_unit_id, quantity, unit_cost, line_total, unit_label, unit_factor, unit_quantity, sale_price, products(name, sku)),
+   supplier_payments(id, amount, payment_method, note, created_at)`;
+
 export class PurchaseService {
   private get client() {
     return getSupabaseClient();
   }
 
+  /** Normaliza los ítems al formato JSONB que esperan las RPC de Postgres */
+  private mapItems(items: PurchaseItemInput[]) {
+    return items.map((item) => ({
+      productId: item.productId,
+      unitQuantity: item.quantity,
+      unitCost: item.unitCost,
+      unitFactor: item.unitFactor ?? 1,
+      unitLabel: item.unitLabel ?? 'Unidad',
+      productUnitId: item.productUnitId ?? null,
+      salePrice: item.salePrice ?? null,
+    }));
+  }
+
+  private validateItems(items: PurchaseItemInput[]) {
+    if (!items?.length) {
+      throw ApiError.badRequest('La compra debe incluir al menos un ítem');
+    }
+    for (const item of items) {
+      if (!item.productId) {
+        throw ApiError.badRequest('Cada ítem debe tener un producto');
+      }
+      if (!item.quantity || item.quantity <= 0) {
+        throw ApiError.badRequest('La cantidad de cada ítem debe ser mayor a 0');
+      }
+      if (item.unitCost === undefined || item.unitCost === null || item.unitCost < 0) {
+        throw ApiError.badRequest('El costo de cada ítem no puede ser negativo');
+      }
+      if (item.salePrice !== undefined && item.salePrice !== null && item.salePrice < 0) {
+        throw ApiError.badRequest('El precio de venta no puede ser negativo');
+      }
+    }
+  }
+
   async list(storeId: string) {
     const { data, error } = await this.client
       .from('purchases')
-      .select(
-        `*, suppliers(business_name), users(full_name),
-         purchase_items(id, product_id, quantity, unit_cost, line_total, unit_label, unit_factor, unit_quantity, products(name)),
-         supplier_payments(id, amount, payment_method, note, created_at)`
-      )
+      .select(PURCHASE_SELECT)
       .eq('store_id', storeId)
       .order('created_at', { ascending: false });
     throwIfError(error);
@@ -69,11 +128,16 @@ export class PurchaseService {
       .in('payment_status', ['PENDING', 'PARTIAL']);
     throwIfError(error);
 
+    // Los tipos generados de Supabase (supabase.types.ts) están desactualizados
+    // respecto a las últimas migraciones, así que la inferencia del select se
+    // rompe. Se acota el tipo manualmente a las columnas pedidas.
+    const rows = (data ?? []) as unknown as PurchaseBalanceRow[];
+
     const bySupplier = new Map<string, { supplierId: string; supplierName: string; balance: number; purchaseCount: number }>();
-    for (const row of data || []) {
+    for (const row of rows) {
       const balance = Number(row.total) - Number(row.amount_paid);
       const existing = bySupplier.get(row.supplier_id);
-      const supplierName = (row as any).suppliers?.business_name ?? 'Desconocido';
+      const supplierName = row.suppliers?.business_name ?? 'Desconocido';
       if (existing) {
         existing.balance += balance;
         existing.purchaseCount += 1;
@@ -91,9 +155,7 @@ export class PurchaseService {
   }
 
   async create(input: PurchaseInput) {
-    if (!input.items?.length) {
-      throw ApiError.badRequest('La compra debe incluir al menos un ítem');
-    }
+    this.validateItems(input.items);
 
     const total = input.items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0)
       + (input.tax ?? 0);
@@ -115,14 +177,7 @@ export class PurchaseService {
       p_store_id: input.storeId,
       p_payment_status: paymentStatus,
       p_amount_paid: paymentStatus === 'PARTIAL' ? input.amountPaid : null,
-      p_items: input.items.map((item) => ({
-        productId: item.productId,
-        unitQuantity: item.quantity,
-        unitCost: item.unitCost,
-        unitFactor: item.unitFactor ?? 1,
-        unitLabel: item.unitLabel ?? 'Unidad',
-        productUnitId: item.productUnitId ?? null,
-      })),
+      p_items: this.mapItems(input.items),
     });
 
     if (error) {
@@ -131,10 +186,7 @@ export class PurchaseService {
 
     const { data: purchase, error: fetchError } = await this.client
       .from('purchases')
-      .select(
-        `*, suppliers(business_name),
-         purchase_items(id, product_id, quantity, unit_cost, line_total, unit_label, unit_factor, unit_quantity, products(name))`
-      )
+      .select(PURCHASE_SELECT)
       .eq('id', purchaseId as string)
       .single();
     throwIfError(fetchError);
@@ -153,6 +205,81 @@ export class PurchaseService {
   }
 
   /**
+   * Edita una compra ya registrada: reemplaza sus ítems (agregar/quitar
+   * productos, cambiar cantidades, costos y precio de venta) y ajusta el
+   * inventario por la diferencia neta.
+   *
+   * La RPC `update_purchase` rechaza la edición si el stock de algún producto
+   * quedaría negativo (mercancía de esa compra ya vendida).
+   */
+  async update(input: UpdatePurchaseInput) {
+    this.validateItems(input.items);
+
+    const { data: existingRow, error: existingError } = await this.client
+      .from('purchases')
+      .select('id, status')
+      .eq('id', input.purchaseId)
+      .eq('store_id', input.storeId)
+      .maybeSingle();
+    throwIfError(existingError);
+
+    const existing = existingRow as unknown as Pick<PurchaseBalanceRow, 'id' | 'status'> | null;
+
+    if (!existing) {
+      throw ApiError.notFound('Compra no encontrada');
+    }
+    if (existing.status === 'CANCELLED') {
+      throw ApiError.badRequest('No se puede editar una compra anulada');
+    }
+
+    const total = input.items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0)
+      + (input.tax ?? 0);
+
+    if (input.paymentStatus === 'PARTIAL') {
+      const amountPaid = input.amountPaid ?? 0;
+      if (amountPaid <= 0 || amountPaid >= total) {
+        throw ApiError.badRequest('El monto abonado debe ser mayor a 0 y menor al total para un pago parcial');
+      }
+    }
+
+    const { error } = await this.client.rpc('update_purchase', {
+      p_purchase_id: input.purchaseId,
+      p_store_id: input.storeId,
+      p_user_id: input.actorUserId,
+      p_supplier_id: input.supplierId,
+      p_invoice_number: input.invoiceNumber || null,
+      p_notes: input.notes || null,
+      p_tax: input.tax ?? 0,
+      p_payment_status: input.paymentStatus ?? null,
+      p_amount_paid: input.amountPaid ?? null,
+      p_items: this.mapItems(input.items),
+    });
+
+    if (error) {
+      throw ApiError.badRequest(error.message);
+    }
+
+    const { data: purchase, error: fetchError } = await this.client
+      .from('purchases')
+      .select(PURCHASE_SELECT)
+      .eq('id', input.purchaseId)
+      .single();
+    throwIfError(fetchError);
+
+    await createAuditLog({
+      entityType: 'purchase',
+      entityId: input.purchaseId,
+      action: 'purchase.updated',
+      description: 'Compra editada (ítems y/o costos actualizados)',
+      userId: input.actorUserId,
+      ipAddress: input.ipAddress,
+      metadata: { supplierId: input.supplierId, total, items: input.items.length },
+    });
+
+    return purchase;
+  }
+
+  /**
    * Registra un abono/pago a una compra existente. Actualiza amount_paid y
    * recalcula payment_status (PENDING -> PARTIAL -> PAID) según el saldo restante.
    */
@@ -161,13 +288,15 @@ export class PurchaseService {
       throw ApiError.badRequest('El monto del pago debe ser mayor a 0');
     }
 
-    const { data: purchase, error: fetchError } = await this.client
+    const { data: purchaseRow, error: fetchError } = await this.client
       .from('purchases')
       .select('id, supplier_id, total, amount_paid, payment_status')
       .eq('id', input.purchaseId)
       .eq('store_id', input.storeId)
       .maybeSingle();
     throwIfError(fetchError);
+
+    const purchase = purchaseRow as unknown as PurchaseBalanceRow | null;
 
     if (!purchase) {
       throw ApiError.notFound('Compra no encontrada');
@@ -218,11 +347,7 @@ export class PurchaseService {
 
     const { data: updated, error: refetchError } = await this.client
       .from('purchases')
-      .select(
-        `*, suppliers(business_name),
-         purchase_items(id, product_id, quantity, unit_cost, line_total, unit_label, unit_factor, unit_quantity, products(name)),
-         supplier_payments(id, amount, payment_method, note, created_at)`
-      )
+      .select(PURCHASE_SELECT)
       .eq('id', input.purchaseId)
       .single();
     throwIfError(refetchError);

@@ -34,6 +34,21 @@ purchaseRouter.post('/', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// Edita una compra ya registrada (ítems, cantidades, costos y precio de venta).
+// El ajuste de inventario y la validación de stock los hace la RPC update_purchase.
+purchaseRouter.put('/:id', async (req, res, next) => {
+  try {
+    const data = await purchaseService.update({
+      ...req.body,
+      purchaseId: req.params.id as string,
+      actorUserId: req.user!.id,
+      ipAddress: req.ip,
+      storeId: getStoreId(req),
+    });
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+});
+
 purchaseRouter.get('/outstanding-by-supplier', async (req, res, next) => {
   try {
     const data = await purchaseService.outstandingBySupplier(getStoreId(req));
